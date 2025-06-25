@@ -47,28 +47,64 @@
         <div class="waiting-games">
             <h2>Phòng đang chờ</h2>
             <div class="game-list">
-                {% for game in waiting_games %}
-                    <div class="game-item">
-                        <span>{{ game.name }} ({{ game.player_count }}/2 người)</span>
-                        <a href="{% url 'game:game_room' room_id=game.id %}" class="btn">Vào phòng</a>
-                    </div>
-                {% empty %}
-                    <p>Không có phòng nào đang chờ.</p>
-                {% endfor %}
+                <table class="room-table">
+                    <thead>
+                        <tr>
+                            <th>Tên phòng</th>
+                            <th>Chủ phòng</th>
+                            <th>Số người</th>
+                            <th>Tùy chọn</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if waiting_games %}
+                            {% for game in waiting_games %}
+                            <tr>
+                                <td>{{ game.name }}</td>
+                                <td>{{ game.creator.username }}</td>
+                                <td>{{ game.player_count }}/2</td>
+                                <td><a href="{% url 'game:game_room' room_id=game.id %}" class="btn">Vào phòng</a></td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="4">Không có phòng nào đang chờ.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
             </div>
         </div>
 
         <div class="in-progress-games">
             <h2>Ván đấu của bạn</h2>
-             <div class="game-list">
-                {% for game in in_progress_games %}
-                     <div class="game-item">
-                        <span>{{ game.name }} (vs ...)</span>
-                        <a href="{% url 'game:game_room' room_id=game.id %}" class="btn">Vào lại</a>
-                    </div>
-                {% empty %}
-                    <p>Bạn không có ván đấu nào đang diễn ra.</p>
-                {% endfor %}
+            <div class="game-list">
+                <table class="room-table">
+                    <thead>
+                        <tr>
+                            <th>Tên phòng</th>
+                            <th>Chủ phòng</th>
+                            <th>Số người</th>
+                            <th>Tùy chọn</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if in_progress_games %}
+                            {% for game in in_progress_games %}
+                            <tr>
+                                <td>{{ game.name }}</td>
+                                <td>{{ game.creator.username }}</td>
+                                <td>{{ game.player_count }}/2</td>
+                                <td><a href="{% url 'game:game_room' room_id=game.id %}" class="btn">Vào lại</a></td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="4">Bạn không có ván đấu nào đang diễn ra.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
