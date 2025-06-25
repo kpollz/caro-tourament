@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - "POSTGRES_DB=caro_db"
+      - "POSTGRES_USER=caro_user"
+      - "POSTGRES_PASSWORD=caro_password"
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: "redis:alpine"
+
+  web:
+    build: .
+    # This command first collects all static files into STATIC_ROOT,
+    # then starts the Daphne server.
+    command: sh -c "python manage.py collectstatic --no-input && daphne -b 0.0.0.0 -p 8000 caro_project.asgi:application"
+    volumes:
+      # Mount the backend directory from the host into the container.
+      # This means changes on your local machine will be reflected inside the container.
+      - ./backend:/usr/src/app/backend
+    ports:
+      - "8000:8000"
+    environment:
+      - POSTGRES_NAME=caro_db
+      - POSTGRES_USER=caro_user
+      - POSTGRES_PASSWORD=caro_password
+      - POSTGRES_HOST=db
+      - REDIS_HOST=redis
+    depends_on:
+      - db
+      - redis
+
+volumes:
+  postgres_data: 

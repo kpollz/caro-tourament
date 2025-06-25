@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="lobby-container">
+    <h1>Caro Game Lobby</h1>
+    
+    <div class="lobby-header">
+        <button id="create-room-btn" class="btn">Tạo phòng mới</button>
+    </div>
+
+    <!-- The Modal -->
+    <div id="create-room-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Tạo phòng mới</h2>
+                <span class="close-button">&times;</span>
+            </div>
+            <form method="post" id="create-room-form">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="room_name">Tên phòng:</label>
+                    <input type="text" id="room_name" name="room_name" required>
+                </div>
+                <div class="form-group">
+                    <label for="board_size">Kích thước bàn cờ:</label>
+                    <select name="board_size" id="board_size">
+                        <option value="15" selected>15x15</option>
+                        <option value="20">20x20</option>
+                        <option value="25">25x25</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="block_two_ends" value="on">
+                        Áp dụng luật chặn 2 đầu
+                    </label>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="cancel-btn">Hủy</button>
+                    <button type="submit" class="btn">Tạo phòng</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="game-lists">
+        <div class="waiting-games">
+            <h2>Phòng đang chờ</h2>
+            <div class="game-list">
+                {% for game in waiting_games %}
+                    <div class="game-item">
+                        <span>{{ game.name }} ({{ game.player_count }}/2 người)</span>
+                        <a href="{% url 'game:game_room' room_id=game.id %}" class="btn">Vào phòng</a>
+                    </div>
+                {% empty %}
+                    <p>Không có phòng nào đang chờ.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="in-progress-games">
+            <h2>Ván đấu của bạn</h2>
+             <div class="game-list">
+                {% for game in in_progress_games %}
+                     <div class="game-item">
+                        <span>{{ game.name }} (vs ...)</span>
+                        <a href="{% url 'game:game_room' room_id=game.id %}" class="btn">Vào lại</a>
+                    </div>
+                {% empty %}
+                    <p>Bạn không có ván đấu nào đang diễn ra.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Get the modal
+    const modal = document.getElementById('create-room-modal');
+    
+    // Get the button that opens the modal
+    const btn = document.getElementById('create-room-btn');
+    
+    // Get the <span> element that closes the modal
+    const span = document.getElementsByClassName('close-button')[0];
+
+    const cancelBtn = document.getElementById('cancel-btn');
+    
+    // When the user clicks the button, open the modal 
+    btn.onclick = function() {
+      modal.style.display = "block";
+    }
+    
+    // When the user clicks on <span> (x), close the modal
+    span.onclick = function() {
+      modal.style.display = "none";
+    }
+
+    cancelBtn.onclick = function() {
+        modal.style.display = "none";
+    }
+    
+    // When the user clicks anywhere outside of the modal, close it
+    window.onclick = function(event) {
+      if (event.target == modal) {
+        modal.style.display = "none";
+      }
+    }
+</script>
+{% endblock %} 

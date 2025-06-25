@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block title %}Game Room {{ room_name }}{% endblock %}
+
+{% block content %}
+<div class="main-container">
+    <h1>Phòng game: {{ room_name }}</h1>
+    <div class="game-area">
+        <div id="player-info-display" class="player-info-box">
+                <!-- Player info will be rendered here by JavaScript -->
+        </div>
+        <div class="board-area">
+            <div id="game-info">Loading...</div>
+            <div id="board-container">
+                <canvas id="caro-board" width="600" height="600"></canvas>
+            </div>
+            <div id="game-over-controls" style="display: none; text-align: center; margin-top: 20px;">
+                <button id="rematch-button" class="btn">Tái đấu</button>
+                <a href="{% url 'game:lobby' %}" class="btn">Rời phòng</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{ game.id|json_script:"room-id-json" }}
+{{ request.user.id|json_script:"user-id-json" }}
+
+<script>
+    const roomID = JSON.parse(document.getElementById('room-id-json').textContent);
+    const currentUserID = JSON.parse(document.getElementById('user-id-json').textContent);
+
+    const gameInfo = document.getElementById('game-info');
+    const board = document.getElementById('caro-board');
+    const ctx = board.getContext('2d');
+    
+    let boardSize = 15; // Default, will be updated
+    let cellSize = board.width / boardSize;
+    let winningLine = null;
+    let rematchRequestedBy = [];
+
+    const rematchButton = document.getElementById('rematch-button');
+
+    const chatSocket = new WebSocket(
+        'ws://'
+        + window.location.host
+        + '/ws/game/'
+        + roomID
+        + '/'
+    );
+
+    function drawBoard(boardState) {
+        boardSize = boardState.length;
+        cellSize = board.width / boardSize;
+
+        ctx.clearRect(0, 0, board.width, board.height);
+        // Draw grid
+        ctx.strokeStyle = '#aaa';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= boardSize; i++) {
+            ctx.beginPath();
+            ctx.moveTo(i * cellSize, 0);
+            ctx.lineTo(i * cellSize, board.height);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(0, i * cellSize);
+            ctx.lineTo(board.width, i * cellSize);
+            ctx.stroke();
+        }
+
+        // Draw pieces
+        for (let row = 0; row < boardSize; row++) {
+            for (let col = 0; col < boardSize; col++) {
+                const piece = boardState[row][col];
+                if (piece) {
+                    const centerX = col * cellSize + cellSize / 2;
+                    const centerY = row * cellSize + cellSize / 2;
+                    const pieceRadius = cellSize / 2 - 8;
+                    
+                    if (piece === 'X') {
+                        ctx.strokeStyle = 'blue';
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.moveTo(centerX - pieceRadius, centerY - pieceRadius);
+                        ctx.lineTo(centerX + pieceRadius, centerY + pieceRadius);
+                        ctx.moveTo(centerX + pieceRadius, centerY - pieceRadius);
+                        ctx.lineTo(centerX - pieceRadius, centerY + pieceRadius);
+                        ctx.stroke();
+                    } else if (piece === 'O') {
+                        ctx.strokeStyle = 'red';
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.arc(centerX, centerY, pieceRadius, 0, 2 * Math.PI);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+        if (winningLine) {
+            drawWinningLine(winningLine);
+        }
+    }
+
+    function drawWinningLine(line) {
+        if (!line || line.length === 0) return;
+        ctx.strokeStyle = 'gold';
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        const start = line[0];
+        const end = line[line.length - 1];
+        ctx.moveTo(start.col * cellSize + cellSize / 2, start.row * cellSize + cellSize / 2);
+        ctx.lineTo(end.col * cellSize + cellSize / 2, end.row * cellSize + cellSize / 2);
+        ctx.stroke();
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 1;
+    }
+
+    chatSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        console.log(data);
+
+        if (data.type === 'game_state' || data.type === 'game_init') {
+            gameInfo.textContent = data.message;
+            winningLine = data.winning_line;
+            rematchRequestedBy = data.rematch_requested_by || [];
+            boardSize = data.board_size; // Update board size
+            
+            const playerInfoDiv = document.getElementById('player-info-display');
+            if (playerInfoDiv) {
+                let playerHtml = '<h3>Người chơi</h3><ul>';
+                 data.players.forEach(p => {
+                    let activeClass = (data.current_turn === p.username) ? 'active-turn' : '';
+                    playerHtml += `<li class="${activeClass}"><span class="player-symbol-${p.symbol}">${p.symbol}</span> - ${p.username}</li>`;
+                });
+                playerHtml += '</ul>';
+                if(data.block_two_ends !== undefined){
+                    playerHtml += `<p>Chặn 2 đầu: ${data.block_two_ends ? 'Có' : 'Không'}</p>`;
+                }
+                playerInfoDiv.innerHTML = playerHtml;
+            }
+            
+            drawBoard(data.board);
+
+            if (data.message.includes('thắng!') || data.message.includes('Hòa!')) {
+                board.style.pointerEvents = 'none';
+                updateRematchButton();
+            } else {
+                board.style.pointerEvents = 'auto';
+                document.getElementById('game-over-controls').style.display = 'none';
+            }
+
+        } else if (data.type === 'error') {
+            gameInfo.textContent = "Lỗi: " + data.message;
+        }
+    };
+
+    function updateRematchButton() {
+        const gameIsOver = gameInfo.textContent.includes('thắng!') || gameInfo.textContent.includes('Hòa!');
+        if (!gameIsOver) {
+            document.getElementById('game-over-controls').style.display = 'none';
+            return;
+        }
+        
+        document.getElementById('game-over-controls').style.display = 'block';
+
+        if (rematchRequestedBy.includes(currentUserID)) {
+            rematchButton.disabled = true;
+            rematchButton.textContent = 'Đã yêu cầu, chờ đối thủ...';
+        } else {
+            rematchButton.disabled = false;
+            rematchButton.textContent = 'Tái đấu';
+        }
+
+        let originalMessage = gameInfo.textContent.split(" Một người chơi")[0].split(" Đối thủ muốn")[0];
+        if (rematchRequestedBy.length === 1 && !rematchRequestedBy.includes(currentUserID)) {
+             gameInfo.textContent = originalMessage + " Đối thủ muốn tái đấu!";
+        } else {
+            gameInfo.textContent = originalMessage;
+        }
+    }
+
+    chatSocket.onclose = function(e) {
+        console.error('Chat socket closed unexpectedly');
+        gameInfo.textContent = 'Mất kết nối. Vui lòng tải lại trang.';
+        board.style.pointerEvents = 'none';
+    };
+
+    board.addEventListener('click', function(event) {
+        if (board.style.pointerEvents === 'none') return;
+        const rect = board.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+
+        // Recalculate cell size before using it
+        cellSize = board.width / boardSize;
+
+        const row = Math.floor(y / cellSize);
+        const col = Math.floor(x / cellSize);
+
+        chatSocket.send(JSON.stringify({
+            'type': 'make_move',
+            'row': row,
+            'col': col
+        }));
+    });
+
+    rematchButton.addEventListener('click', function() {
+        chatSocket.send(JSON.stringify({
+            'type': 'request_rematch'
+        }));
+    });
+</script>
+{% endblock %}
