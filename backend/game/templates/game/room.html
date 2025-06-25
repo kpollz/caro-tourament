@@ -37,6 +37,7 @@
     let cellSize = board.width / boardSize;
     let winningLine = null;
     let rematchRequestedBy = [];
+    let hoverCell = null;
 
     const rematchButton = document.getElementById('rematch-button');
 
@@ -49,6 +50,7 @@
     );
 
     function drawBoard(boardState) {
+        window.lastBoardState = boardState;
         boardSize = boardState.length;
         cellSize = board.width / boardSize;
 
@@ -75,6 +77,20 @@
                 ctx.fillRect(cell.col * cellSize, cell.row * cellSize, cellSize, cellSize);
                 ctx.restore();
             });
+        }
+
+        // Tô nền hover nếu hợp lệ
+        if (
+            hoverCell &&
+            hoverCell.row >= 0 && hoverCell.row < boardSize &&
+            hoverCell.col >= 0 && hoverCell.col < boardSize &&
+            (!Array.isArray(winningLine) || !winningLine.some(cell => cell.row === hoverCell.row && cell.col === hoverCell.col)) &&
+            boardState[hoverCell.row][hoverCell.col] === ''
+        ) {
+            ctx.save();
+            ctx.fillStyle = 'rgba(0, 123, 255, 0.15)'; // xanh nhạt
+            ctx.fillRect(hoverCell.col * cellSize, hoverCell.row * cellSize, cellSize, cellSize);
+            ctx.restore();
         }
 
         // Draw pieces
@@ -195,6 +211,34 @@
             'row': row,
             'col': col
         }));
+    });
+
+    board.addEventListener('mousemove', function(event) {
+        const rect = board.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        cellSize = board.width / boardSize;
+        const row = Math.floor(y / cellSize);
+        const col = Math.floor(x / cellSize);
+        if (
+            row >= 0 && row < boardSize &&
+            col >= 0 && col < boardSize &&
+            (!Array.isArray(winningLine) || !winningLine.some(cell => cell.row === row && cell.col === col))
+        ) {
+            if (!hoverCell || hoverCell.row !== row || hoverCell.col !== col) {
+                hoverCell = { row, col };
+                drawBoard(window.lastBoardState || []);
+            }
+        } else {
+            if (hoverCell) {
+                hoverCell = null;
+                drawBoard(window.lastBoardState || []);
+            }
+        }
+    });
+    board.addEventListener('mouseleave', function() {
+        hoverCell = null;
+        drawBoard(window.lastBoardState || []);
     });
 
     rematchButton.addEventListener('click', function() {
