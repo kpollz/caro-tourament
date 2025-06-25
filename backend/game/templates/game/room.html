@@ -5,13 +5,13 @@
 {% block content %}
 <div class="main-container">
     <h1>Phòng game: {{ room_name }}</h1>
-    <div class="game-area">
-        <div id="player-info-display" class="player-info-box">
+    <div class="game-area" style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+        <div id="player-info-display" class="player-info-box" style="margin-bottom: 24px;">
                 <!-- Player info will be rendered here by JavaScript -->
         </div>
-        <div class="board-area">
+        <div class="board-area" style="display: flex; flex-direction: column; align-items: center;">
             <div id="game-info">Loading...</div>
-            <div id="board-container">
+            <div id="board-container" style="display: flex; justify-content: center; align-items: center;">
                 <canvas id="caro-board" width="600" height="600"></canvas>
             </div>
             <div id="game-over-controls" style="display: none; text-align: center; margin-top: 20px;">
@@ -67,6 +67,16 @@
             ctx.stroke();
         }
 
+        // Tô nền vàng cho các ô thắng
+        if (Array.isArray(winningLine)) {
+            winningLine.forEach(cell => {
+                ctx.save();
+                ctx.fillStyle = 'rgba(255, 215, 0, 0.5)'; // vàng nhạt
+                ctx.fillRect(cell.col * cellSize, cell.row * cellSize, cellSize, cellSize);
+                ctx.restore();
+            });
+        }
+
         // Draw pieces
         for (let row = 0; row < boardSize; row++) {
             for (let col = 0; col < boardSize; col++) {
@@ -95,23 +105,6 @@
                 }
             }
         }
-        if (winningLine) {
-            drawWinningLine(winningLine);
-        }
-    }
-
-    function drawWinningLine(line) {
-        if (!line || line.length === 0) return;
-        ctx.strokeStyle = 'gold';
-        ctx.lineWidth = 5;
-        ctx.beginPath();
-        const start = line[0];
-        const end = line[line.length - 1];
-        ctx.moveTo(start.col * cellSize + cellSize / 2, start.row * cellSize + cellSize / 2);
-        ctx.lineTo(end.col * cellSize + cellSize / 2, end.row * cellSize + cellSize / 2);
-        ctx.stroke();
-        ctx.strokeStyle = 'black';
-        ctx.lineWidth = 1;
     }
 
     chatSocket.onmessage = function(e) {
@@ -126,10 +119,11 @@
             
             const playerInfoDiv = document.getElementById('player-info-display');
             if (playerInfoDiv) {
-                let playerHtml = '<h3>Người chơi</h3><ul>';
+                let playerHtml = '<h3>Người chơi</h3><ul style="list-style: none; padding-left: 0;">';
                  data.players.forEach(p => {
                     let activeClass = (data.current_turn === p.username) ? 'active-turn' : '';
-                    playerHtml += `<li class="${activeClass}"><span class="player-symbol-${p.symbol}">${p.symbol}</span> - ${p.username}</li>`;
+                    let colorClass = p.symbol === 'X' ? 'legend-x' : 'legend-o';
+                    playerHtml += `<li class="${activeClass}"><span class=\"${colorClass}\">${p.symbol}</span> - ${p.username}</li>`;
                 });
                 playerHtml += '</ul>';
                 if(data.block_two_ends !== undefined){

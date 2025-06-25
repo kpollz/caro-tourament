@@ -63,16 +63,17 @@ class GameConsumer(AsyncWebsocketConsumer):
         board[row][col] = player.symbol
 
         # Check for winner
-        winner = self.check_winner(board, player.symbol, row, col, game.block_two_ends)
-        
-        if winner:
+        winning_line = self.check_winner(board, player.symbol, row, col, game.block_two_ends)
+        if winning_line:
             game.status = 'finished'
             game.winner = self.user
+            game.winning_line = winning_line
             message = f"Player {self.user.username} ({player.symbol}) wins!"
         else:
             # Switch turn
             other_player_user = await self.get_other_player_user(game)
             game.current_turn = other_player_user
+            game.winning_line = None
             message = self.get_game_status_message(game)
 
         game.board = board
@@ -87,45 +88,40 @@ class GameConsumer(AsyncWebsocketConsumer):
                 'board': game.board,
                 'board_size': game.board_size,
                 'message': message,
-                'players': players
+                'players': players,
+                'winning_line': game.winning_line
             }
         )
 
     def check_winner(self, board, symbol, r, c, allow_blocked_win):
-        # This is a simplified checker. A real implementation should be more robust.
-        # It checks for 5 in a row in 4 directions.
         directions = [(0, 1), (1, 0), (1, 1), (1, -1)] # Horizontal, Vertical, Diag down, Diag up
         for dr, dc in directions:
-            count = 1
+            line = [(r, c)]
             # Count forward
             for i in range(1, 5):
                 nr, nc = r + dr * i, c + dc * i
                 if 0 <= nr < 15 and 0 <= nc < 15 and board[nr][nc] == symbol:
-                    count += 1
+                    line.append((nr, nc))
                 else:
                     break
             # Count backward
             for i in range(1, 5):
                 nr, nc = r - dr * i, c - dc * i
                 if 0 <= nr < 15 and 0 <= nc < 15 and board[nr][nc] == symbol:
-                    count += 1
+                    line.insert(0, (nr, nc))
                 else:
                     break
-            
-            if count >= 5:
-                # Basic check for blocked ends (for rules where this matters)
+            if len(line) >= 5:
                 if not allow_blocked_win:
-                    # Check one end
-                    end1_r, end1_c = r + dr * (count - 1), c + dc * (count - 1)
+                    end1_r, end1_c = line[-1][0] + dr, line[-1][1] + dc
                     blocked1 = not (0 <= end1_r < 15 and 0 <= end1_c < 15) or (board[end1_r][end1_c] != '' and board[end1_r][end1_c] != symbol)
-                    # Check other end
-                    end2_r, end2_c = r - dr, c - dc
+                    end2_r, end2_c = line[0][0] - dr, line[0][1] - dc
                     blocked2 = not (0 <= end2_r < 15 and 0 <= end2_c < 15) or (board[end2_r][end2_c] != '' and board[end2_r][end2_c] != symbol)
                     if blocked1 and blocked2:
-                        continue # This line is blocked, check other directions
-                return True # Found a winner
-        return False
-
+                        continue
+                # Trả về danh sách các ô thắng dạng dict
+                return [{"row": row, "col": col} for row, col in line]
+        return None
 
     def get_game_status_message(self, game):
         if game.status == 'waiting':
@@ -143,7 +139,8 @@ class GameConsumer(AsyncWebsocketConsumer):
             'board': event['board'],
             'board_size': event['board_size'],
             'message': event['message'],
-            'players': event.get('players', [])
+            'players': event.get('players', []),
+            'winning_line': event.get('winning_line', None)
         }))
 
     # Send an error message to the client
