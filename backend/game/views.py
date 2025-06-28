@@ -39,7 +39,7 @@ def lobby_view(request):
         return redirect('game:game_room', room_id=game.id)
 
     waiting_games = Game.objects.filter(status='waiting').annotate(player_count=Count('players')).order_by('-created_at')
-    in_progress_games = Game.objects.filter(status='in_progress', players=request.user).order_by('-updated_at')
+    in_progress_games = Game.objects.filter(status='in_progress', players=request.user).annotate(player_count=Count('players')).order_by('-updated_at')
     
     return render(request, "game/index.html", {
         "waiting_games": waiting_games,

@@ -55,7 +55,7 @@ class GameConsumer(AsyncWebsocketConsumer):
             return await self.send_error("Not your turn.")
         if not isinstance(row, int) or not isinstance(col, int):
             return await self.send_error("Invalid move data (row/col must be integer).")
-        if not (0 <= row < 15 and 0 <= col < 15 and game.board[row][col] == ''):
+        if not (0 <= row < game.board_size and 0 <= col < game.board_size and game.board[row][col] == ''):
             return await self.send_error("Invalid move.")
 
         # Apply move
@@ -63,7 +63,7 @@ class GameConsumer(AsyncWebsocketConsumer):
         board[row][col] = player.symbol
 
         # Check for winner
-        winning_line = self.check_winner(board, player.symbol, row, col, game.block_two_ends)
+        winning_line = self.check_winner(board, player.symbol, row, col, game.block_two_ends, game.board_size)
         if winning_line:
             game.status = 'finished'
             game.winner = self.user
@@ -93,30 +93,30 @@ class GameConsumer(AsyncWebsocketConsumer):
             }
         )
 
-    def check_winner(self, board, symbol, r, c, allow_blocked_win):
+    def check_winner(self, board, symbol, r, c, allow_blocked_win, board_size):
         directions = [(0, 1), (1, 0), (1, 1), (1, -1)] # Horizontal, Vertical, Diag down, Diag up
         for dr, dc in directions:
             line = [(r, c)]
             # Count forward
             for i in range(1, 5):
                 nr, nc = r + dr * i, c + dc * i
-                if 0 <= nr < 15 and 0 <= nc < 15 and board[nr][nc] == symbol:
+                if 0 <= nr < board_size and 0 <= nc < board_size and board[nr][nc] == symbol:
                     line.append((nr, nc))
                 else:
                     break
             # Count backward
             for i in range(1, 5):
                 nr, nc = r - dr * i, c - dc * i
-                if 0 <= nr < 15 and 0 <= nc < 15 and board[nr][nc] == symbol:
+                if 0 <= nr < board_size and 0 <= nc < board_size and board[nr][nc] == symbol:
                     line.insert(0, (nr, nc))
                 else:
                     break
             if len(line) >= 5:
                 if not allow_blocked_win:
                     end1_r, end1_c = line[-1][0] + dr, line[-1][1] + dc
-                    blocked1 = not (0 <= end1_r < 15 and 0 <= end1_c < 15) or (board[end1_r][end1_c] != '' and board[end1_r][end1_c] != symbol)
+                    blocked1 = not (0 <= end1_r < board_size and 0 <= end1_c < board_size) or (board[end1_r][end1_c] != '' and board[end1_r][end1_c] != symbol)
                     end2_r, end2_c = line[0][0] - dr, line[0][1] - dc
-                    blocked2 = not (0 <= end2_r < 15 and 0 <= end2_c < 15) or (board[end2_r][end2_c] != '' and board[end2_r][end2_c] != symbol)
+                    blocked2 = not (0 <= end2_r < board_size and 0 <= end2_c < board_size) or (board[end2_r][end2_c] != '' and board[end2_r][end2_c] != symbol)
                     if blocked1 and blocked2:
                         continue
                 # Trả về danh sách các ô thắng dạng dict
