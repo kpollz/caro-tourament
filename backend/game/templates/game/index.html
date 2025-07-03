@@ -43,6 +43,42 @@
         </div>
     </div>
 
+    <!-- The Edit Room Modal -->
+    <div id="edit-room-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Chỉnh sửa phòng</h2>
+                <span class="close-button-edit">&times;</span>
+            </div>
+            <form method="post" id="edit-room-form">
+                {% csrf_token %}
+                <input type="hidden" id="edit_room_id" name="room_id">
+                <div class="form-group">
+                    <label for="edit_room_name">Tên phòng:</label>
+                    <input type="text" id="edit_room_name" name="room_name" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit_board_size">Kích thước bàn cờ:</label>
+                    <select name="board_size" id="edit_board_size">
+                        <option value="15">15x15</option>
+                        <option value="20">20x20</option>
+                        <option value="25">25x25</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="block_two_ends" id="edit_block_two_ends" value="on">
+                        Áp dụng luật chặn 2 đầu
+                    </label>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="cancel-edit-btn">Hủy</button>
+                    <button type="submit" class="btn">Lưu thay đổi</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="game-lists">
         <div class="waiting-games">
             <h2>Phòng đang chờ</h2>
@@ -52,8 +88,8 @@
                         <tr>
                             <th>Tên phòng</th>
                             <th>Chủ phòng</th>
-                            <th>Số người</th>
-                            <th>Tùy chọn</th>
+                            <th>Khách mời</th>
+                            <th>Hành động</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -62,8 +98,15 @@
                             <tr>
                                 <td>{{ game.name }}</td>
                                 <td>{{ game.creator.username }}</td>
-                                <td>{{ game.player_count }}/2</td>
-                                <td><a href="{% url 'game:game_room' room_id=game.id %}" class="btn">Vào phòng</a></td>
+                                <td>{% if game.guest %}{{ game.guest.username }}{% else %}Chưa có{% endif %}</td>
+                                <td>
+                                    <a href="{% url 'game:game_room' room_id=game.id %}" class="btn">Vào phòng</a>
+                                    <button class="btn btn-secondary edit-room-btn" data-room-id="{{ game.id }}" data-room-name="{{ game.name }}" data-board-size="{{ game.board_size }}" data-block-two-ends="{{ game.block_two_ends }}">Chỉnh sửa</button>
+                                    <form method="post" action="{% url 'game:delete_game' room_id=game.id %}" style="display:inline;">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-danger" onclick="return confirm('Bạn có chắc muốn xóa phòng này?');">Xóa phòng</button>
+                                    </form>
+                                </td>
                             </tr>
                             {% endfor %}
                         {% else %}
@@ -84,7 +127,7 @@
                         <tr>
                             <th>Tên phòng</th>
                             <th>Chủ phòng</th>
-                            <th>Số người</th>
+                            <th>Khách mời</th>
                             <th>Tùy chọn</th>
                         </tr>
                     </thead>
@@ -94,7 +137,7 @@
                             <tr>
                                 <td>{{ game.name }}</td>
                                 <td>{{ game.creator.username }}</td>
-                                <td>{{ game.player_count }}/2</td>
+                                <td>{% if game.guest %}{{ game.guest.username }}{% else %}Chưa có{% endif %}</td>
                                 <td><a href="{% url 'game:game_room' room_id=game.id %}" class="btn">Vào lại</a></td>
                             </tr>
                             {% endfor %}
@@ -141,6 +184,38 @@
       if (event.target == modal) {
         modal.style.display = "none";
       }
+    }
+
+    // Edit Room Modal logic
+    const editModal = document.getElementById('edit-room-modal');
+    const editBtns = document.querySelectorAll('.edit-room-btn');
+    const closeEditBtn = document.getElementsByClassName('close-button-edit')[0];
+    const cancelEditBtn = document.getElementById('cancel-edit-btn');
+    const editRoomForm = document.getElementById('edit-room-form');
+
+    editBtns.forEach(btn => {
+        btn.onclick = function() {
+            const roomId = btn.getAttribute('data-room-id');
+            const roomName = btn.getAttribute('data-room-name');
+            const boardSize = btn.getAttribute('data-board-size');
+            const blockTwoEnds = btn.getAttribute('data-block-two-ends') === 'True' || btn.getAttribute('data-block-two-ends') === 'true';
+            document.getElementById('edit_room_id').value = roomId;
+            document.getElementById('edit_room_name').value = roomName;
+            document.getElementById('edit_board_size').value = boardSize;
+            document.getElementById('edit_block_two_ends').checked = blockTwoEnds;
+            editModal.style.display = "block";
+        }
+    });
+    closeEditBtn.onclick = function() {
+        editModal.style.display = "none";
+    }
+    cancelEditBtn.onclick = function() {
+        editModal.style.display = "none";
+    }
+    window.onclick = function(event) {
+        if (event.target == editModal) {
+            editModal.style.display = "none";
+        }
     }
 </script>
 {% endblock %} 
